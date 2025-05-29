@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="./">
+    <title>Shane's Personal Repair Tracker</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            background-color: #121212;
+            color: #e0e0e0;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            width: 100%;
+            max-width: 900px;
+            margin: auto;
+            background: #1e1e1e;
+            padding: 25px 30px;
+            border-radius: 12px;
+            border: 1px solid #333;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+        h1, h2, h3 {
+            text-align: center;
+            color: #ffffff;
+            margin-bottom: 20px;
+        }
+        form { display: flex; flex-direction: column; gap: 12px; margin-bottom: 30px; }
+        input[type="text"], textarea { padding: 12px; border: 1px solid #444; border-radius: 6px; font-size: 16px; background-color: #2a2a2a; color: #e0e0e0; color-scheme: dark; }
+        textarea { min-height: 80px; resize: vertical; }
+        button { padding: 12px 18px; border: none; border-radius: 6px; background-color: #0d6efd; color: white; font-size: 16px; font-weight: 500; cursor: pointer; transition: all 0.2s ease; }
+        button:hover { background-color: #0b5ed7; transform: translateY(-1px); }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #333; }
+        th { background-color: #2a2a2a; font-weight: 600; }
+        .fixed-item td { background-color: #1c2b20; color: #888; }
+        .fixed-item td:first-child { text-decoration: line-through; }
+        .action-button { font-size: 14px; padding: 8px 12px; margin-right: 5px; }
+        .fix-button { background-color: #198754; }
+        .fix-button:hover { background-color: #157347; }
+        .print-button { background-color: #6c757d; }
+        .print-button:hover { background-color: #5a6268; }
+        .delete-button { background-color: #dc3545; }
+        .delete-button:hover { background-color: #c82333; }
+        .status-completed { color: #20c997; font-weight: bold; }
+        .ai-council {
+            background: linear-gradient(135deg, #2a2a2a, #1e1e1e);
+            border: 2px solid #444;
+            border-radius: 12px;
+            padding: 25px;
+            margin: 30px 0;
+            text-align: center;
+        }
+        .ai-council h3 {
+            background: linear-gradient(45deg, #6f42c1, #20c997, #fd7e14);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-size: 24px;
+            margin-bottom: 15px;
+        }
+        .ai-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        #geminiBtn { background: linear-gradient(45deg, #6f42c1, #5a349b); }
+        #claudeBtn { background: linear-gradient(45deg, #20c997, #17a085); }
+        #grokBtn { background: linear-gradient(45deg, #fd7e14, #dc6502); }
+        #councilBtn { background: linear-gradient(45deg, #dc3545, #c82333); font-weight: bold; font-size: 18px; padding: 15px 25px; }
+        .ai-buttons button:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        #diagnosticResult {
+            margin-top: 20px;
+            font-family: 'Courier New', monospace;
+            text-align: left;
+            white-space: pre-wrap;
+            background-color: #121212;
+            padding: 20px;
+            border-radius: 8px;
+            min-height: 100px;
+            border: 1px solid #444;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .ai-message {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 8px;
+            border-left: 4px solid;
+            transform: translateX(-20px);
+            opacity: 0;
+            animation: slideIn 0.5s ease-out forwards;
+        }
+        .gemini-message { background-color: #2d1b47; border-left-color: #6f42c1; }
+        .claude-message { background-color: #1b3d35; border-left-color: #20c997; }
+        .grok-message { background-color: #3d2b1b; border-left-color: #fd7e14; }
+        .council-deliberation { border-left-color: #ffd700 !important; background: linear-gradient(135deg, #2a2a2a, #1a1a1a) !important; font-weight: 500; }
+        .typing-indicator {
+            display: inline-block;
+            width: 20px;
+            height: 6px;
+            border-radius: 3px;
+            background-color: #666;
+            animation: typing 1.4s infinite ease-in-out;
+        }
+        .typing-indicator:nth-child(1) { animation-delay: -0.32s; }
+        .typing-indicator:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes typing {
+            0%, 80%, 100% { opacity: 0.2; }
+            40% { opacity: 1; }
+        }
+        @keyframes slideIn {
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .ticket { display: none; }
+        #printable-ticket-area { display: none; }
+        @media print {
+            body, .container, .ai-council, #repairTable, #repairForm, #diagnosticResult {
+                display: none !important;
+            }
+            #printable-ticket-area {
+                display: block !important;
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: auto;
+                background: #fff !important;
+                margin: 0;
+                padding: 0;
+            }
+            .ticket {
+                display: block !important;
+                font-family: 'Courier New', monospace;
+                color: #000 !important;
+                background: #fff !important;
+                border: 4px double #000;
+                padding: 20px;
+                width: 100%;
+                max-width: 8.5in;
+                box-sizing: border-box;
+                margin: 0;
+                page-break-after: avoid;
+            }
+            .ticket-header { text-align: center; margin-bottom: 20px; }
+            .ticket-header h1 { font-size: 24px; margin: 0; color: #000; }
+            .ticket-header p { font-size: 14px; margin: 5px 0; color: #000; }
+            .ticket-details, .ticket-work, .ticket-notes { border: 1px solid #000; padding: 10px; margin-bottom: 20px; }
+            .ticket-details p, .ticket-work p { margin: 5px 0; font-size: 16px; color: #000; }
+            .ticket-work strong { display: block; margin-top: 10px; }
+            .ticket-notes h3 { text-align: center; margin-top: 0; color: #000; }
+            .ticket-notes ul { list-style-type: none; padding: 0; color: #000; }
+            .ticket-notes li { margin-bottom: 8px; }
+            .ticket-footer { text-align: center; margin-top: 40px; font-size: 12px; font-style: italic; color: #000; }
+            .signature { margin-top: 60px; border-top: 1px solid #000; width: 50%; display: inline-block; }
+            @page { size: auto; margin: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Shane's Personal Repair Tracker</h1>
+        <form id="repairForm">
+            <input type="text" id="itemName" placeholder="Item Name (e.g., Kitchen Lamp)" required>
+            <textarea id="itemProblem" placeholder="Problem Description (e.g., Flickers constantly)" required></textarea>
+            <button type="submit">Add Item to Repair List</button>
+        </form>
+        <div class="ai-council">
+            <h3>🤖 The AI Repair Council 🔧</h3>
+            <p>Our AI experts are ready to roast your repair list!</p>
+            <div class="ai-buttons">
+                <button id="geminiBtn">Ask Gemini</button>
+                <button id="claudeBtn">Ask Claude</button>
+                <button id="grokBtn">Ask Grok</button>
+            </div>
+            <button id="councilBtn">🔥 CONVENE THE COUNCIL 🔥</button>
+            <div id="diagnosticResult">The council awaits your summons...</div>
+        </div>
+        <h2>Repair List</h2>
+        <div style="overflow-x:auto;">
+            <table id="repairTable">
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Problem</th>
+                        <th>Date Created</th>
+                        <th>Date Fixed</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="repairList"></tbody>
+            </table>
+        </div>
+    </div>
+    <div id="printable-ticket-area"></div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const repairForm = document.getElementById('repairForm');
+            const repairList = document.getElementById('repairList');
+            const printableArea = document.getElementById('printable-ticket-area');
+            const itemNameInput = document.getElementById('itemName');
+            const geminiBtn = document.getElementById('geminiBtn');
+            const claudeBtn = document.getElementById('claudeBtn');
+            const grokBtn = document.getElementById('grokBtn');
+            const councilBtn = document.getElementById('councilBtn');
+            const diagnosticResult = document.getElementById('diagnosticResult');
+            const aiButtons = [geminiBtn, claudeBtn, grokBtn, councilBtn];
+            let isAIChatting = false;
+
+            let repairs = JSON.parse(localStorage.getItem('shanesRepairOrdersV2')) || [];
+            const saveRepairs = () => {
+                localStorage.setItem('shanesRepairOrdersV2', JSON.stringify(repairs));
+            };
+
+            const createTicketHTML = (repair) => {
+                const ticketNotes = [
+                    'P.S. If it breaks again, try sweet-talking it!',
+                    'Warning: May require a second rubber chicken sacrifice!',
+                    'Fixed with 99% skill, 1% magic WD-40!'
+                ];
+                const randomNote = ticketNotes[Math.floor(Math.random() * ticketNotes.length)];
+                return `<div class="ticket"><div class="ticket-header"><h1>Shane's Slightly-Broken Contraption Repair Co.</h1><p>"If it ain't broke, we can't fix it!"</p><p>Madison, AL | Phone: 1-800-MAYBE</p></div><div class="ticket-details"><p><strong>Work Order #:</strong> ${repair.id}</p><p><strong>Customer:</strong> Shane</p><p><strong>Date In:</strong> ${repair.created}</p></div><div class="ticket-work"><p><strong>Item For Service:</strong> ${repair.name}</p><p><strong>Reported Problem:</strong> ${repair.problem}</p></div><div class="ticket-notes"><h3>Official Technician Checklist</h3><ul><li>[ ] Looked at it sternly.</li><li>[ ] Questioned its life choices.</li><li>[ ] Applied percussive maintenance (gave it a whack).</li><li>[ ] Turned it off and on again (The Magic Cure).</li><li>[ ] Sacrificed a rubber chicken to the machine spirits.</li></ul></div><div class="ticket-footer"><p>Terms: Not responsible for items that spontaneously combust, achieve sentience, or are left for over 30 days. All parts are guaranteed to be... parts.</p><p class="ticket-note">${randomNote}</p></div></div>`;
+            };
+
+            const printTicket = (repairId) => {
+                const repairToPrint = repairs.find(r => r.id === repairId);
+                if (repairToPrint) {
+                    printableArea.innerHTML = createTicketHTML(repairToPrint);
+                    window.print();
+                    setTimeout(() => {
+                        printableArea.innerHTML = '';
+                    }, 1000);
+                }
+            };
+
+            const renderRepairs = () => {
+                repairList.innerHTML = '';
+                if (repairs.length === 0) {
+                    repairList.innerHTML = '<tr><td colspan="5" style="text-align:center;">No repair orders yet! 😊 Add one above.</td></tr>';
+                    return;
+                }
+                repairs.forEach(repair => {
+                    const row = document.createElement('tr');
+                    if (repair.status === 'fixed') {
+                        row.classList.add('fixed-item');
+                    }
+                    row.innerHTML = `<td>${repair.name}</td><td>${repair.problem}</td><td>${repair.created}</td><td>${repair.fixed || '---'}</td><td class="action-cell">${repair.status !== 'fixed' ? `<button class="action-button fix-button" data-id="${repair.id}" data-action="fix">Mark as Fixed</button>` : `<span class="status-completed">Completed</span>`}<button class="action-button print-button" data-id="${repair.id}" data-action="print">Print Ticket</button><button class="action-button delete-button" data-id="${repair.id}" data-action="delete">Delete</button></td>`;
+                    repairList.appendChild(row);
+                });
+            };
+
+            const getRepairStats = () => {
+                const totalItems = repairs.length;
+                const fixedItems = repairs.filter(r => r.status === 'fixed').length;
+                const pendingItems = totalItems - fixedItems;
+                const latestRepair = repairs.slice(-1)[0] || { name: 'None', problem: 'N/A' };
+                return { totalItems, fixedItems, pendingItems, latestRepair };
+            };
+
+            const showTypingIndicator = (aiName) => {
+                const indicatorDiv = document.createElement('div');
+                indicatorDiv.className = `ai-message ${aiName.toLowerCase()}-message`;
+                indicatorDiv.style.animation = 'slideIn 0.3s ease-out';
+                indicatorDiv.innerHTML = `<strong>${aiName} is pondering...</strong><br><span class="typing-indicator"></span> <span class="typing-indicator"></span> <span class="typing-indicator"></span>`;
+                diagnosticResult.appendChild(indicatorDiv);
+                diagnosticResult.scrollTop = diagnosticResult.scrollHeight;
+                return indicatorDiv;
+            };
+
+            const displayAIResponse = (aiName, responseText) => {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `ai-message ${aiName.toLowerCase()}-message`;
+                messageDiv.style.animation = 'slideIn 0.5s ease-out';
+                messageDiv.innerHTML = `<strong>${aiName}:</strong> ${responseText.replace(/\n/g, '<br>')}`;
+                diagnosticResult.appendChild(messageDiv);
+                diagnosticResult.scrollTop = diagnosticResult.scrollHeight;
+            };
+
+            const disableAIChat = (disable) => {
+                isAIChatting = disable;
+                aiButtons.forEach(btn => btn.disabled = disable);
+            };
+
+            const aiResponsePool = {
+                Gemini: {
+                    empty: [stats => `Zero items detected. Shane, is your workshop a utopia, or are you hiding the chaos? 🤔`],
+                    allFixed: [stats => `100% completion rate with ${stats.fixedItems} fixes. Impressive discipline, Shane!`],
+                    backlog: [stats => `Alert: ${stats.pendingItems} pending items. The ${stats.latestRepair.name} (${stats.latestRepair.problem}) demands urgent action!`],
+                    balanced: [stats => `Balanced system: ${stats.fixedItems} fixed, ${stats.pendingItems} pending. Monitor ${stats.latestRepair.name} closely.`]
+                },
+                Claude: {
+                    empty: [stats => `Shane, an empty list! A rare moment of peace—time to plan or chill? 😊`],
+                    allFixed: [stats => `All ${stats.fixedItems} items fixed! Shane, your dedication is legendary!`],
+                    backlog: [stats => `With ${stats.pendingItems} pending, like ${stats.latestRepair.name} (${stats.latestRepair.problem}), tackle one today for a win!`],
+                    balanced: [stats => `Nice work, Shane! ${stats.fixedItems} done, ${stats.pendingItems} to go. ${stats.latestRepair.name} looks like a fun challenge!`]
+                },
+                Grok: {
+                    empty: [stats => `WHOA, Shane! Empty list? Are you a repair GOD or just not breaking enough stuff?! 😎`],
+                    allFixed: [stats => `SHANE, YOU LEGEND! ${stats.fixedItems} fixes? You’re a REPAIR NINJA! 🥷`],
+                    backlog: [stats => `${stats.pendingItems} broken things, like ${stats.latestRepair.name}? It’s an EPIC QUEST! Grab your tools, hero! 🔥`],
+                    balanced: [stats => `Sweet balance, Shane! ${stats.fixedItems} fixed, ${stats.pendingItems} to go. ${stats.latestRepair.name} sounds like FUN! 🛠️`]
+                }
+            };
+
+            const respondToPrevious = (aiName, previousMessage, stats) => {
+                if (!previousMessage) return '';
+                const { aiName: prevAI } = previousMessage;
+                const responses = {
+                    Gemini: [`I see ${prevAI}'s perspective, but I’d analyze ${stats.latestRepair.name} closely. Could ${stats.latestRepair.problem} be a systemic issue?`],
+                    Claude: [`Thanks, ${prevAI}, for the insight! Shane, try tackling ${stats.latestRepair.name} first for a quick win.`],
+                    Grok: [`YO ${prevAI}, ease up on the serious vibes! Shane, let’s SMASH ${stats.latestRepair.name} like it’s a piñata! 🎉`]
+                };
+                return responses[aiName][Math.floor(Math.random() * responses.length)];
+            };
+
+            const getEasterEgg = (stats) => {
+                if (Math.random() > 0.7) {
+                    const eggs = [
+                        `Grok: Is ${stats.latestRepair.name} HAUNTED?! Quick, grab some holy WD-40! 😱`,
+                        `Claude: Shane, ever wonder if ${stats.latestRepair.name} broke just to get your attention? 🤔`
+                    ];
+                    return `<br>${eggs[Math.floor(Math.random() * eggs.length)]}`;
+                }
+                return '';
+            };
+
+            geminiBtn.addEventListener('click', async () => {
+                if (isAIChatting) return;
+                disableAIChat(true);
+                diagnosticResult.innerHTML = '';
+                const stats = getRepairStats();
+                const typingIndicator = showTypingIndicator('Gemini');
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                typingIndicator.remove();
+                const responses = aiResponsePool.Gemini[
+                    stats.totalItems === 0 ? 'empty' :
+                    stats.pendingItems === 0 ? 'allFixed' :
+                    stats.pendingItems > stats.fixedItems ? 'backlog' : 'balanced'
+                ];
+                displayAIResponse('Gemini', responses[Math.floor(Math.random() * responses.length)](stats) + getEasterEgg(stats));
+                disableAIChat(false);
+            });
+
+            claudeBtn.addEventListener('click', async () => {
+                if (isAIChatting) return;
+                disableAIChat(true);
+                diagnosticResult.innerHTML = '';
+                const stats = getRepairStats();
+                const typingIndicator = showTypingIndicator('Claude');
+                await new Promise(resolve => setTimeout(resolve, 1800));
+                typingIndicator.remove();
+                const responses = aiResponsePool.Claude[
+                    stats.totalItems === 0 ? 'empty' :
+                    stats.pendingItems === 0 ? 'allFixed' :
+                    stats.pendingItems > stats.fixedItems ? 'backlog' : 'balanced'
+                ];
+                displayAIResponse('Claude', responses[Math.floor(Math.random() * responses.length)](stats) + getEasterEgg(stats));
+                disableAIChat(false);
+            });
+
+            grokBtn.addEventListener('click', async () => {
+                if (isAIChatting) return;
+                disableAIChat(true);
+                diagnosticResult.innerHTML = '';
+                const stats = getRepairStats();
+                const typingIndicator = showTypingIndicator('Grok');
+                await new Promise(resolve => setTimeout(resolve, 1200));
+                typingIndicator.remove();
+                const responses = aiResponsePool.Grok[
+                    stats.totalItems === 0 ? 'empty' :
+                    stats.pendingItems === 0 ? 'allFixed' :
+                    stats.pendingItems > stats.fixedItems ? 'backlog' : 'balanced'
+                ];
+                displayAIResponse('Grok', responses[Math.floor(Math.random() * responses.length)](stats) + getEasterEgg(stats));
+                disableAIChat(false);
+            });
+
+            councilBtn.addEventListener('click', async () => {
+                if (isAIChatting) return;
+                disableAIChat(true);
+                diagnosticResult.innerHTML = `<div style="text-align: center; color: #ffd700; font-weight: bold; padding:10px; animation: slideIn 0.5s;">🔥 CONVENING THE AI REPAIR COUNCIL 🔥<br>Neural circuits warming up...</div>`;
+                await new Promise(resolve => setTimeout(resolve, 1500));
+
+                const stats = getRepairStats();
+                const councilOrder = ['Gemini', 'Claude', 'Grok'].sort(() => Math.random() - 0.5);
+                const conversationHistory = [];
+
+                for (const aiName of councilOrder) {
+                    const typingIndicator = showTypingIndicator(aiName);
+                    await new Promise(resolve => setTimeout(resolve, 1500 + Math.random() * 1000));
+                    typingIndicator.remove();
+
+                    const responses = aiResponsePool[aiName][
+                        stats.totalItems === 0 ? 'empty' :
+                        stats.pendingItems === 0 ? 'allFixed' :
+                        stats.pendingItems > stats.fixedItems ? 'backlog' : 'balanced'
+                    ];
+                    let response = responses[Math.floor(Math.random() * responses.length)](stats);
+                    if (conversationHistory.length > 0) {
+                        response += `<br>${respondToPrevious(aiName, conversationHistory[conversationHistory.length - 1], stats)}`;
+                    }
+                    response += getEasterEgg(stats);
+                    displayAIResponse(aiName, response);
+                    conversationHistory.push({ aiName, response });
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+
+                const discussionHeader = document.createElement('div');
+                discussionHeader.innerHTML = `<br><strong style="color: #ffd700; display:block; text-align:center; margin-bottom:10px;">--- Council Deliberations ---</strong>`;
+                discussionHeader.style.animation = 'slideIn 1s ease-out';
+                diagnosticResult.appendChild(discussionHeader);
+
+                const discussion = [
+                    stats.totalItems === 0 ? `<strong>Gemini:</strong> No data to analyze, but this calm is suspicious.<br><strong>Claude:</strong> Agreed, Shane might be planning something epic!<br><strong>Grok:</strong> Or Shane’s just CHILLIN’! Let’s throw a paper airplane contest! 🎉` :
+                    stats.pendingItems === 0 ? `<strong>Claude:</strong> Shane’s cleared the list! A true master!<br><strong>Grok:</strong> TOTAL REPAIR DOMINATION! High-five, Shane! 🖐️<br><strong>Gemini:</strong> Impressive, but entropy lurks...` :
+                    stats.pendingItems > 3 ? `<strong>Gemini:</strong> Triage needed for ${stats.latestRepair.name}.<br><strong>Claude:</strong> Start small for momentum, Shane!<br><strong>Grok:</strong> Go BIG! Fix ${stats.latestRepair.name} with a hammer and swagger! 🔨` :
+                    `<strong>Claude:</strong> Steady progress, Shane! ${stats.latestRepair.name} next?<br><strong>Gemini:</strong> Monitor ${stats.latestRepair.problem} closely.<br><strong>Grok:</strong> Let’s make ${stats.latestRepair.name} REGRET breaking! 😈`
+                ][
+                    stats.totalItems === 0 ? 0 :
+                    stats.pendingItems === 0 ? 1 :
+                    stats.pendingItems > 3 ? 2 : 3
+                ];
+
+                const discussionDiv = document.createElement('div');
+                discussionDiv.className = 'ai-message council-deliberation';
+                discussionDiv.style.cssText = 'background-color: #252525; border-left: 4px solid #ffd700; padding: 15px; margin-top:10px; animation: slideIn 1s ease-out;';
+                discussionDiv.innerHTML = discussion + getEasterEgg(stats);
+                diagnosticResult.appendChild(discussionDiv);
+                diagnosticResult.scrollTop = diagnosticResult.scrollHeight;
+                await new Promise(resolve => setTimeout(resolve, 1000));
+
+                const footer = document.createElement('div');
+                footer.innerHTML = '<br>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━<br>🏛️ Council session adjourned. May your tools be true and your fixes swift! 🏛️<br>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
+                footer.style.cssText = 'text-align: center; color: #ffd700; font-weight: bold; margin-top: 20px; padding-bottom:10px; animation: slideIn 1s ease-out;';
+                diagnosticResult.appendChild(footer);
+                diagnosticResult.scrollTop = diagnosticResult.scrollHeight;
+
+                disableAIChat(false);
+            });
+
+            repairList.addEventListener('click', (e) => {
+                if (isAIChatting) {
+                    alert("Please wait for the AI Council to conclude their session.");
+                    return;
+                }
+                const button = e.target.closest('.action-button');
+                if (!button) return;
+                const repairId = parseInt(button.dataset.id);
+                const action = button.dataset.action;
+
+                if (action === 'fix') {
+                    const repairToUpdate = repairs.find(r => r.id === repairId);
+                    if (repairToUpdate) {
+                        repairToUpdate.status = 'fixed';
+                        repairToUpdate.fixed = new Date().toLocaleString([], { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                        saveRepairs();
+                        renderRepairs();
+                    }
+                } else if (action === 'print') {
+                    printTicket(repairId);
+                } else if (action === 'delete') {
+                    if (confirm('Are you sure you want to delete this repair?')) {
+                        repairs = repairs.filter(r => r.id !== repairId);
+                        saveRepairs();
+                        renderRepairs();
+                    }
+                }
+            });
+
+            repairForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                if (isAIChatting) {
+                    alert("Please wait for the AI Council to conclude their session before adding new items.");
+                    return;
+                }
+                const itemName = itemNameInput.value.trim();
+                const itemProblem = document.getElementById('itemProblem').value.trim();
+                if (!itemName || !itemProblem) {
+                    alert('Please fill out both item name and problem description.');
+                    return;
+                }
+                if (itemName.length > 50 || itemProblem.length > 200) {
+                    alert('Item name must be under 50 characters, and problem description under 200.');
+                    return;
+                }
+                const newRepair = {
+                    id: Date.now(),
+                    name: itemName,
+                    problem: itemProblem,
+                    status: 'pending',
+                    created: new Date().toLocaleString([], { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+                    fixed: null
+                };
+                repairs.push(newRepair);
+                saveRepairs();
+                renderRepairs();
+                repairForm.reset();
+                itemNameInput.focus();
+            });
+
+            renderRepairs();
+            itemNameInput.focus();
+        });
+    </script>
+</body>
+</html>
